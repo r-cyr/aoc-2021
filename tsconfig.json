@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "lib": ["ES2021"],
+    "target": "ES2021",
+    "module": "CommonJS",
+    "outDir": "dist",
+    "rootDir": "src",
+    "strict": true,
+    "esModuleInterop": true,
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "noUncheckedIndexedAccess": true,
+    "useUnknownInCatchVariables": true,
+    "baseUrl": ".",
+    "plugins": [
+      {
+        "transform": "@effect-ts/tracing-plugin"
+      }
+    ]
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "build"]
+}

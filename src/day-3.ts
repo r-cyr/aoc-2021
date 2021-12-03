@@ -6,7 +6,7 @@ import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import * as SK from "@effect-ts/core/Effect/Experimental/Stream/Sink";
-import { pipe } from "@effect-ts/core/Function";
+import { constant, pipe } from "@effect-ts/core/Function";
 import {
   generateBitMask,
   printResults,
@@ -28,7 +28,7 @@ function toBitArray<N extends number>(
   return O.fromPredicate_(arr, (a): a is BitArray<N> => arr.length === size);
 }
 
-const binaryStream = pipe(
+const bitArrayStream = pipe(
   readFileAsStream("./inputs/day-3.txt"),
   S.splitLines,
   S.map((bits) => toBitArray(BIT_ARRAY_SIZE, Array.from(bits, Number))),
@@ -108,12 +108,12 @@ function findCO2ScrubberRating<R, E>(
 }
 
 const part1 = pipe(
-  binaryStream,
+  bitArrayStream,
   S.run(
     SK.zipPar_(
       SK.reduce(
-        AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), (_) => 0),
-        () => true,
+        AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), constant(0)),
+        constant(true),
         (bits, newBits: BitArray<BIT_ARRAY_SIZE>) =>
           AR.zipWith_(bits, newBits, (a, b) => a + b)
       ),
@@ -131,8 +131,8 @@ const part1 = pipe(
 );
 
 const part2 = T.zipWithPar_(
-  findOxygenGeneratorRating(binaryStream),
-  findCO2ScrubberRating(binaryStream),
+  findOxygenGeneratorRating(bitArrayStream),
+  findCO2ScrubberRating(bitArrayStream),
   (o2, co2) => o2 * co2
 );
 

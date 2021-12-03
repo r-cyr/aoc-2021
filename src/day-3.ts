@@ -1,5 +1,6 @@
 import * as T from "@effect-ts/core/Effect";
 import * as STR from "@effect-ts/core/String";
+import * as O from "@effect-ts/core/Option";
 import * as M from "@effect-ts/core/Effect/Managed";
 import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as AR from "@effect-ts/core/Collections/Immutable/Array";
@@ -16,26 +17,35 @@ import {
 const BIT_ARRAY_SIZE = 12;
 type BIT_ARRAY_SIZE = typeof BIT_ARRAY_SIZE;
 
-type BIT_ARRAY<N, T extends unknown[] = []> = T["length"] extends N
+type BitArray<N, T extends unknown[] = []> = T["length"] extends N
   ? T
-  : BIT_ARRAY<N, [...T, number]>;
+  : BitArray<N, [...T, number]>;
 
-const emptyBitArray = <N extends number>(n: N): BIT_ARRAY<N> =>
-  Array.from({ length: n }, () => 0) as BIT_ARRAY<N>;
+function toBitArray<N extends number>(
+  size: N,
+  arr: AR.Array<number>
+): O.Option<BitArray<N>> {
+  if (arr.length !== size) {
+    return O.none;
+  }
+
+  return O.some(arr as BitArray<N>);
+}
 
 const binaryStream = pipe(
   readFileAsStream("./inputs/day-3.txt"),
   S.splitLines,
-  S.map((bits) => Array.from(bits, Number) as BIT_ARRAY<BIT_ARRAY_SIZE>)
+  S.map((bits) => toBitArray(BIT_ARRAY_SIZE, Array.from(bits, Number))),
+  S.some
 );
 
 type RatingType = "highest" | "lowest";
 
 function findRating<R, E>(
-  stream: S.Stream<R, E, BIT_ARRAY<BIT_ARRAY_SIZE>>,
+  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>,
   type: RatingType,
   pos = 0
-): S.Stream<R, E | Error, BIT_ARRAY<BIT_ARRAY_SIZE>> {
+): S.Stream<R, E | Error, BitArray<BIT_ARRAY_SIZE>> {
   if (pos === BIT_ARRAY_SIZE) {
     return stream;
   }
@@ -46,7 +56,7 @@ function findRating<R, E>(
         tuple: [oneStream, zeroStream],
       } = yield* _(S.partition_(stream, (bits) => !!bits[pos]!));
       const sink = () =>
-        SK.zipPar_(SK.collectAll<any, BIT_ARRAY<BIT_ARRAY_SIZE>>(), SK.count());
+        SK.zipPar_(SK.collectAll<any, BitArray<BIT_ARRAY_SIZE>>(), SK.count());
       const {
         tuple: [
           {
@@ -78,11 +88,11 @@ function findRating<R, E>(
         }
       }
     })
-  ) as S.Stream<R, E | Error, BIT_ARRAY<BIT_ARRAY_SIZE>>;
+  ) as S.Stream<R, E | Error, BitArray<BIT_ARRAY_SIZE>>;
 }
 
 function findOxygenGeneratorRating<R, E>(
-  stream: S.Stream<R, E, BIT_ARRAY<BIT_ARRAY_SIZE>>
+  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>
 ) {
   return pipe(
     findRating(stream, "highest"),
@@ -93,7 +103,7 @@ function findOxygenGeneratorRating<R, E>(
 }
 
 function findCO2ScrubberRating<R, E>(
-  stream: S.Stream<R, E, BIT_ARRAY<BIT_ARRAY_SIZE>>
+  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>
 ) {
   return pipe(
     findRating(stream, "lowest"),
@@ -108,14 +118,10 @@ const part1 = pipe(
   S.run(
     SK.zipPar_(
       SK.reduce(
-        emptyBitArray(BIT_ARRAY_SIZE),
+        AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), (_) => 0),
         () => true,
-        (bits, newBits: BIT_ARRAY<BIT_ARRAY_SIZE>) =>
-          AR.zipWith_(
-            bits,
-            newBits,
-            (a, b) => a + b
-          ) as BIT_ARRAY<BIT_ARRAY_SIZE>
+        (bits, newBits: BitArray<BIT_ARRAY_SIZE>) =>
+          AR.zipWith_(bits, newBits, (a, b) => a + b)
       ),
       SK.count()
     )

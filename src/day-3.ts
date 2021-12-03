@@ -41,7 +41,7 @@ function findRating<R, E>(
   stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>,
   type: RatingType,
   pos = 0
-): S.Stream<R, E | Error, BitArray<BIT_ARRAY_SIZE>> {
+): S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>> {
   if (pos === BIT_ARRAY_SIZE) {
     return stream;
   }

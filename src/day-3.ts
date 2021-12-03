@@ -45,7 +45,8 @@ function findRating<R, E>(
       const {
         tuple: [oneStream, zeroStream],
       } = yield* _(S.partition_(stream, (bits) => !!bits[pos]!));
-
+      const sink = () =>
+        SK.zipPar_(SK.collectAll<any, BIT_ARRAY<BIT_ARRAY_SIZE>>(), SK.count());
       const {
         tuple: [
           {
@@ -56,26 +57,7 @@ function findRating<R, E>(
           },
         ],
       } = yield* _(
-        T.zipPar_(
-          pipe(
-            zeroStream,
-            S.run(
-              SK.zipPar_(
-                SK.collectAll<any, BIT_ARRAY<BIT_ARRAY_SIZE>>(),
-                SK.count()
-              )
-            )
-          ),
-          pipe(
-            oneStream,
-            S.run(
-              SK.zipPar_(
-                SK.collectAll<any, BIT_ARRAY<BIT_ARRAY_SIZE>>(),
-                SK.count()
-              )
-            )
-          )
-        )
+        T.zipPar_(S.run_(zeroStream, sink()), S.run_(oneStream, sink()))
       );
 
       if (type === "lowest") {
@@ -88,6 +70,7 @@ function findRating<R, E>(
         }
       } else {
         const elems = numberOfOnes >= numberOfZeros ? ones : zeros;
+
         if (CK.size(elems) === 1) {
           return S.fromChunk(elems);
         } else {
@@ -152,4 +135,5 @@ const part2 = T.zipWithPar_(
   findCO2ScrubberRating(binaryStream),
   (o2, co2) => o2 * co2
 );
+
 printResults(3, part1, part2).catch(console.error);

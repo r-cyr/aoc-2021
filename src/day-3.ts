@@ -51,40 +51,38 @@ function findRating<R, E>(
       const {
         tuple: [oneStream, zeroStream],
       } = yield* _(S.partition_(stream, (bits) => !!bits[pos]!));
-      const sink = () =>
-        SK.zipPar_(SK.collectAll<any, BitArray<BIT_ARRAY_SIZE>>(), SK.count());
       const {
-        tuple: [
-          {
-            tuple: [zeros, numberOfZeros],
-          },
-          {
-            tuple: [ones, numberOfOnes],
-          },
-        ],
+        tuple: [zeros, ones],
       } = yield* _(
-        T.zipPar_(S.run_(zeroStream, sink()), S.run_(oneStream, sink()))
+        T.zipPar_(
+          S.run_(zeroStream, SK.collectAll()),
+          S.run_(oneStream, SK.collectAll())
+        )
       );
+      const zerosSize = CK.size(zeros);
+      const onesSize = CK.size(ones);
 
       if (type === "lowest") {
-        const elems = numberOfOnes >= numberOfZeros ? zeros : ones;
+        const nextValues = onesSize >= zerosSize ? zeros : ones;
+        const nextStream = S.fromChunk(nextValues);
 
-        if (CK.size(elems) === 1) {
-          return S.fromChunk(elems);
+        if (CK.size(nextValues) === 1) {
+          return nextStream;
         } else {
-          return findRating(S.fromChunk(elems), type, pos + 1);
+          return findRating(nextStream, type, pos + 1);
         }
       } else {
-        const elems = numberOfOnes >= numberOfZeros ? ones : zeros;
+        const nextValues = onesSize >= zerosSize ? ones : zeros;
+        const nextStream = S.fromChunk(nextValues);
 
-        if (CK.size(elems) === 1) {
-          return S.fromChunk(elems);
+        if (CK.size(nextValues) === 1) {
+          return nextStream;
         } else {
-          return findRating(S.fromChunk(elems), type, pos + 1);
+          return findRating(nextStream, type, pos + 1);
         }
       }
     })
-  ) as S.Stream<R, E | Error, BitArray<BIT_ARRAY_SIZE>>;
+  );
 }
 
 function findOxygenGeneratorRating<R, E>(

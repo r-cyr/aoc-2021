@@ -1,6 +1,7 @@
 import * as T from "@effect-ts/core/Effect";
 import * as O from "@effect-ts/core/Option";
 import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
+import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { createReadStream } from "fs";
 import { pipe } from "@effect-ts/core";
@@ -30,8 +31,20 @@ export function parseInteger(str: string) {
   return O.fromPredicate_(Number(str), (result) => !Number.isNaN(result));
 }
 
-export function toBinary(str: string) {
-  return parseInt(str, 2);
+export function bitArrayToNumber(arr: AR.Array<number>) {
+  return AR.reduceWithIndex_(
+    arr,
+    0,
+    (index, acc, bit) => acc | (bit << (arr.length - index - 1))
+  );
+}
+
+export function stringToBitArray(str: string) {
+  return AR.map_(AR.from(str), (bit) => (bit === "0" ? 0 : 1));
+}
+
+export function bitAt(offset: number, n: number) {
+  return (n >>> offset) & 1;
 }
 
 export function generateBitMask(n: number): number {
@@ -39,7 +52,7 @@ export function generateBitMask(n: number): number {
   let count = 0;
 
   while (count < n) {
-    result = (result << 1) + 1;
+    result = (result << 1) | 1;
     count++;
   }
 

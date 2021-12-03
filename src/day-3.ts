@@ -1,48 +1,35 @@
 import * as T from "@effect-ts/core/Effect";
-import * as STR from "@effect-ts/core/String";
-import * as O from "@effect-ts/core/Option";
 import * as M from "@effect-ts/core/Effect/Managed";
 import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import * as SK from "@effect-ts/core/Effect/Experimental/Stream/Sink";
-import { constant, pipe } from "@effect-ts/core/Function";
+import { constant, flow, pipe } from "@effect-ts/core/Function";
 import {
+  bitAt,
+  stringToBitArray,
   generateBitMask,
   printResults,
   readFileAsStream,
-  toBinary,
+  bitArrayToNumber,
 } from "./utils";
 
 const BIT_ARRAY_SIZE = 12;
-type BIT_ARRAY_SIZE = typeof BIT_ARRAY_SIZE;
 
-type BitArray<N, T extends unknown[] = []> = T["length"] extends N
-  ? T
-  : BitArray<N, [...T, number]>;
-
-function toBitArray<N extends number>(
-  size: N,
-  arr: AR.Array<number>
-): O.Option<BitArray<N>> {
-  return O.fromPredicate_(arr, (a): a is BitArray<N> => arr.length === size);
-}
-
-const bitArrayStream = pipe(
+const numberStream = pipe(
   readFileAsStream("./inputs/day-3.txt"),
   S.splitLines,
-  S.map((bits) => toBitArray(BIT_ARRAY_SIZE, Array.from(bits, Number))),
-  S.some
+  S.map(flow(stringToBitArray, bitArrayToNumber))
 );
 
 type RatingType = "highest" | "lowest";
 
 function findRating<R, E>(
-  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>,
+  stream: S.Stream<R, E, number>,
   type: RatingType,
-  pos = 0
-): S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>> {
-  if (pos === BIT_ARRAY_SIZE) {
+  offset = 0
+): S.Stream<R, E, number> {
+  if (offset === BIT_ARRAY_SIZE) {
     return stream;
   }
 
@@ -50,7 +37,12 @@ function findRating<R, E>(
     M.gen(function* (_) {
       const {
         tuple: [oneStream, zeroStream],
-      } = yield* _(S.partition_(stream, (bits) => !!bits[pos]!));
+      } = yield* _(
+        S.partition_(
+          stream,
+          (bits) => !!bitAt(BIT_ARRAY_SIZE - offset - 1, bits)
+        )
+      );
       const {
         tuple: [zeros, ones],
       } = yield* _(
@@ -69,7 +61,7 @@ function findRating<R, E>(
         if (CK.size(nextValues) === 1) {
           return nextStream;
         } else {
-          return findRating(nextStream, type, pos + 1);
+          return findRating(nextStream, type, offset + 1);
         }
       } else {
         const nextValues = onesSize >= zerosSize ? ones : zeros;
@@ -78,51 +70,40 @@ function findRating<R, E>(
         if (CK.size(nextValues) === 1) {
           return nextStream;
         } else {
-          return findRating(nextStream, type, pos + 1);
+          return findRating(nextStream, type, offset + 1);
         }
       }
     })
   );
 }
 
-function findOxygenGeneratorRating<R, E>(
-  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>
-) {
-  return pipe(
-    findRating(stream, "highest"),
-    S.runHead,
-    T.some,
-    T.map((_) => toBinary(AR.map_(_, STR.fromNumber).join("")))
-  );
+function findOxygenGeneratorRating<R, E>(stream: S.Stream<R, E, number>) {
+  return pipe(findRating(stream, "highest"), S.runHead, T.some);
 }
 
-function findCO2ScrubberRating<R, E>(
-  stream: S.Stream<R, E, BitArray<BIT_ARRAY_SIZE>>
-) {
-  return pipe(
-    findRating(stream, "lowest"),
-    S.runHead,
-    T.some,
-    T.map((_) => toBinary(AR.map_(_, STR.fromNumber).join("")))
-  );
+function findCO2ScrubberRating<R, E>(stream: S.Stream<R, E, number>) {
+  return pipe(findRating(stream, "lowest"), S.runHead, T.some);
 }
 
 const part1 = pipe(
-  bitArrayStream,
+  numberStream,
   S.run(
     SK.zipPar_(
       SK.reduce(
         AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), constant(0)),
         constant(true),
-        (bits, newBits: BitArray<BIT_ARRAY_SIZE>) =>
-          AR.zipWith_(bits, newBits, (a, b) => a + b)
+        (bits, newBits: number) =>
+          AR.mapWithIndex_(
+            bits,
+            (index, n) => n + bitAt(BIT_ARRAY_SIZE - index - 1, newBits)
+          )
       ),
       SK.count()
     )
   ),
   T.map(({ tuple: [bits, nbEntries] }) => {
-    const gamma = toBinary(
-      AR.map_(bits, (bit) => (bit >= nbEntries / 2 ? "1" : "0")).join("")
+    const gamma = bitArrayToNumber(
+      AR.map_(bits, (bit) => (bit >= Math.floor(nbEntries / 2) ? 1 : 0))
     );
     const epsilon = ~gamma & generateBitMask(BIT_ARRAY_SIZE);
 
@@ -131,8 +112,8 @@ const part1 = pipe(
 );
 
 const part2 = T.zipWithPar_(
-  findOxygenGeneratorRating(bitArrayStream),
-  findCO2ScrubberRating(bitArrayStream),
+  findOxygenGeneratorRating(numberStream),
+  findCO2ScrubberRating(numberStream),
   (o2, co2) => o2 * co2
 );
 

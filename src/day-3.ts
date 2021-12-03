@@ -25,11 +25,7 @@ function toBitArray<N extends number>(
   size: N,
   arr: AR.Array<number>
 ): O.Option<BitArray<N>> {
-  if (arr.length !== size) {
-    return O.none;
-  }
-
-  return O.some(arr as BitArray<N>);
+  return O.fromPredicate_(arr, (a): a is BitArray<N> => arr.length === size);
 }
 
 const binaryStream = pipe(

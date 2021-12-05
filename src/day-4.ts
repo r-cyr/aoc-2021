@@ -1,4 +1,5 @@
 import * as T from "@effect-ts/core/Effect";
+import * as BR from "@effect-ts/core/Branded";
 import * as M from "@effect-ts/core/Effect/Managed";
 import * as STR from "@effect-ts/core/String";
 import * as O from "@effect-ts/core/Option";
@@ -7,12 +8,19 @@ import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
-import { printResults, readFileAsStream, parseInteger, bitAt } from "./utils";
+import {
+  printResults,
+  readFileAsStream,
+  parseInteger,
+  bitAt,
+  ParseError,
+  NotFoundError,
+} from "./utils";
 
-type Board = CK.Chunk<number>;
-type BoardMask = number;
-type Draw = number;
-type Winner = Tp.Tuple<[Board, BoardMask, Draw]>;
+type Board = BR.Branded<CK.Chunk<number>, "Board">;
+type BoardMask = BR.Branded<number, "BoardMask">;
+type Draw = BR.Branded<number, "Draw">;
+type Winner = BR.Branded<Tp.Tuple<[Board, BoardMask, Draw]>, "Winner">;
 
 function isEmptyLine(str: string) {
   return STR.trim(str).length === 0;
@@ -32,8 +40,11 @@ const boardStream = pipe(
       : O.some(CK.from(STR.split_(STR.trim(line), /\s+/)))
   ),
   S.grouped(5),
-  S.map((_) => pipe(CK.flatten(_), forEachChunkOption(parseInteger))),
-  S.some
+  S.map(
+    (_) =>
+      pipe(CK.flatten(_), forEachChunkOption(parseInteger)) as O.Option<Board>
+  ),
+  S.someOrFail(() => new ParseError(`Could not parse Board`))
 );
 
 const drawStream = pipe(
@@ -41,8 +52,8 @@ const drawStream = pipe(
   S.splitLines,
   S.take(1),
   S.chain((line) => S.fromIterable(STR.split_(STR.trim(line), ","))),
-  S.map(parseInteger),
-  S.some
+  S.map((_) => parseInteger(_) as O.Option<Draw>),
+  S.someOrFail(() => new ParseError(`Could not parse Draws`))
 );
 
 function applyDrawToMask(num: Draw) {
@@ -52,7 +63,9 @@ function applyDrawToMask(num: Draw) {
 
       return Tp.tuple(
         board,
-        index > -1 ? mask | (1 << (CK.size(board) - index - 1)) : mask
+        (index > -1
+          ? mask | (1 << (CK.size(board) - index - 1))
+          : mask) as BoardMask
       );
     });
 }
@@ -71,7 +84,7 @@ function isWinningBoard(mask: BoardMask): boolean {
     0b00100_00100_00100_00100_00100, //
     0b00010_00010_00010_00010_00010, //
     0b00001_00001_00001_00001_00001, //
-  ];
+  ] as unknown as AR.Array<BoardMask>;
 
   return O.isSome(
     AR.findFirst_(
@@ -81,11 +94,11 @@ function isWinningBoard(mask: BoardMask): boolean {
   );
 }
 
-function drawNumbers(numbers: CK.Chunk<number>) {
+function drawNumbers(draws: CK.Chunk<Draw>) {
   const go = <R, E>(
-    numbers: CK.Chunk<number>,
+    numbers: CK.Chunk<Draw>,
     boards: S.Stream<R, E, Tp.Tuple<[Board, BoardMask]>>
-  ): S.Stream<R, E, Tp.Tuple<[Board, BoardMask, Draw]>> =>
+  ): S.Stream<R, E, Winner> =>
     O.fold_(
       CK.head(numbers),
       () => S.empty,
@@ -104,10 +117,10 @@ function drawNumbers(numbers: CK.Chunk<number>) {
 
             return pipe(
               winning,
-              S.map((tuple) => Tp.append_(tuple, currentNumber)),
+              S.map((tuple) => Tp.append_(tuple, currentNumber) as Winner),
               S.concat(
                 go(
-                  O.getOrElse_(CK.tail(numbers), () => CK.empty<number>()),
+                  O.getOrElse_(CK.tail(numbers), () => CK.empty<Draw>()),
                   others
                 )
               )
@@ -118,12 +131,12 @@ function drawNumbers(numbers: CK.Chunk<number>) {
 
   return <R, E>(boards: S.Stream<R, E, Board>) =>
     go(
-      numbers,
-      S.map_(boards, (board) => Tp.tuple(board, 0))
+      draws,
+      S.map_(boards, (board) => Tp.tuple(board, 0 as BoardMask))
     );
 }
 
-function calculateWinnerScore(winner: Winner) {
+function calculateWinnerScore(winner: Winner): number {
   const {
     tuple: [board, mask, num],
   } = winner;
@@ -139,28 +152,28 @@ function calculateWinnerScore(winner: Winner) {
 }
 
 const part1 = T.gen(function* (_) {
-  const numbers = yield* _(pipe(drawStream, S.runCollect));
+  const draws = yield* _(pipe(drawStream, S.runCollect));
 
   return yield* _(
     pipe(
       boardStream,
-      drawNumbers(numbers),
+      drawNumbers(draws),
       S.runHead,
-      T.some,
+      T.someOrFail(() => new NotFoundError("No Winner was found")),
       T.map(calculateWinnerScore)
     )
   );
 });
 
 const part2 = T.gen(function* (_) {
-  const numbers = yield* _(pipe(drawStream, S.runCollect));
+  const draws = yield* _(pipe(drawStream, S.runCollect));
 
   return yield* _(
     pipe(
       boardStream,
-      drawNumbers(numbers),
+      drawNumbers(draws),
       S.runLast,
-      T.some,
+      T.someOrFail(() => new NotFoundError("No Winner was found")),
       T.map(calculateWinnerScore)
     )
   );

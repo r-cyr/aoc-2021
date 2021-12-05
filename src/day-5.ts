@@ -64,7 +64,9 @@ function isVertical({ a, b }: LineSegment) {
   return a.x === b.x;
 }
 
-function lineSegmentToPoints(ignoreDiagonals: boolean) {
+type IgnoreFlag = "ignore-diagonals" | "ignore-none";
+
+function lineSegmentToPoints(ignoreFlag: IgnoreFlag) {
   return (ls: LineSegment): CK.Chunk<Point> => {
     const { a, b } = ls;
 
@@ -76,7 +78,7 @@ function lineSegmentToPoints(ignoreDiagonals: boolean) {
       return CK.map_(range(a.y, b.y), (y) => ({ x: a.x, y }));
     }
 
-    if (ignoreDiagonals) {
+    if (ignoreFlag === "ignore-diagonals") {
       return CK.empty<Point>();
     }
 
@@ -88,14 +90,14 @@ function hashPoint(point: Point): string {
   return `${point.x}-${point.y}`;
 }
 
-function makePart(ignoreDiagonals: boolean) {
+function makePart(ignoreFlag: IgnoreFlag) {
   return T.gen(function* (_) {
     const mapRef = yield* _(RefM.makeRefM<Map<string, number>>(new Map()));
 
     yield* _(
       pipe(
         hydrothermalVentStream,
-        S.mapConcatChunk(lineSegmentToPoints(ignoreDiagonals)),
+        S.mapConcatChunk(lineSegmentToPoints(ignoreFlag)),
         S.mapEffect((point) =>
           RefM.update_(mapRef, (map) =>
             T.succeedWith(() => {
@@ -118,8 +120,8 @@ function makePart(ignoreDiagonals: boolean) {
   });
 }
 
-const part1 = makePart(true);
+const part1 = makePart("ignore-diagonals");
 
-const part2 = makePart(false);
+const part2 = makePart("ignore-none");
 
 printResults(5, part1, part2).catch(console.error);

@@ -12,6 +12,8 @@ import {
   printResults,
   readFileAsStream,
   bitArrayToNumber,
+  Bit,
+  NotFoundError,
 } from "./utils";
 
 const BIT_ARRAY_SIZE = 12;
@@ -22,7 +24,7 @@ const numberStream = pipe(
   S.map(flow(stringToBitArray, bitArrayToNumber))
 );
 
-type RatingType = "highest" | "lowest";
+type RatingType = "oxygen" | "co2";
 
 function findRating<R, E>(
   stream: S.Stream<R, E, number>,
@@ -54,7 +56,7 @@ function findRating<R, E>(
       const zerosSize = CK.size(zeros);
       const onesSize = CK.size(ones);
 
-      if (type === "lowest") {
+      if (type === "co2") {
         const nextValues = onesSize >= zerosSize ? zeros : ones;
         const nextStream = S.fromChunk(nextValues);
 
@@ -78,11 +80,21 @@ function findRating<R, E>(
 }
 
 function findOxygenGeneratorRating<R, E>(stream: S.Stream<R, E, number>) {
-  return pipe(findRating(stream, "highest"), S.runHead, T.some);
+  return pipe(
+    findRating(stream, "oxygen"),
+    S.runHead,
+    T.someOrFail(
+      () => new NotFoundError("No Oxygen Generator rating was found")
+    )
+  );
 }
 
 function findCO2ScrubberRating<R, E>(stream: S.Stream<R, E, number>) {
-  return pipe(findRating(stream, "lowest"), S.runHead, T.some);
+  return pipe(
+    findRating(stream, "co2"),
+    S.runHead,
+    T.someOrFail(() => new NotFoundError("No CO2 Scrubber rating was found"))
+  );
 }
 
 const part1 = pipe(
@@ -90,12 +102,13 @@ const part1 = pipe(
   S.run(
     SK.zipPar_(
       SK.reduce(
-        AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), constant(0)),
+        AR.map_(AR.range(0, BIT_ARRAY_SIZE - 1), constant(0 as Bit)),
         constant(true),
         (bits, newBits: number) =>
           AR.mapWithIndex_(
             bits,
-            (index, n) => n + bitAt(BIT_ARRAY_SIZE - index - 1, newBits)
+            (index, n) =>
+              (n + bitAt(BIT_ARRAY_SIZE - index - 1, newBits)) as Bit
           )
       ),
       SK.count()
@@ -103,7 +116,7 @@ const part1 = pipe(
   ),
   T.map(({ tuple: [bits, nbEntries] }) => {
     const gamma = bitArrayToNumber(
-      AR.map_(bits, (bit) => (bit >= Math.floor(nbEntries / 2) ? 1 : 0))
+      AR.map_(bits, (bit) => (bit >= Math.floor(nbEntries / 2) ? 1 : 0) as Bit)
     );
     const epsilon = ~gamma & generateBitMask(BIT_ARRAY_SIZE);
 

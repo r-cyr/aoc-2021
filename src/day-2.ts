@@ -1,10 +1,16 @@
 import * as T from "@effect-ts/core/Effect";
+import * as BR from "@effect-ts/core/Branded";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as STR from "@effect-ts/core/String";
 import * as O from "@effect-ts/core/Option";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
-import { parseInteger, printResults, readFileAsStream } from "./utils";
+import {
+  ParseError,
+  parseInteger,
+  printResults,
+  readFileAsStream,
+} from "./utils";
 
 interface Up {
   readonly _tag: "Up";
@@ -23,12 +29,18 @@ interface Forward {
 
 type Direction = Up | Down | Forward;
 
+type Depth = BR.Branded<number, "Depth">;
+
+type HorizontalPosition = BR.Branded<number, "HorizontalPosition">;
+
+type Aim = BR.Branded<number, "Aim">;
+
 function foldDirection_<Z1, Z2, Z3>(
   direction: Direction,
   onUp: (up: Up) => Z1,
   onDown: (down: Down) => Z2,
   onForward: (forward: Forward) => Z3
-) {
+): Z1 | Z2 | Z3 {
   switch (direction._tag) {
     case "Up":
       return onUp(direction);
@@ -62,35 +74,61 @@ function parseDirection(input: string): O.Option<Direction> {
 const directionStream = pipe(
   readFileAsStream("./inputs/day-2.txt"),
   S.splitLines,
-  S.mapEffect((line) => T.fromOption(parseDirection(line)))
+  S.mapEffect((line) =>
+    pipe(
+      parseDirection(line),
+      T.fromOption,
+      T.mapError(() => new ParseError(`${line} is not a Direction`))
+    )
+  )
 );
+
+function makePosition(
+  horizontalPosition: number,
+  depth: number
+): Tp.Tuple<[HorizontalPosition, Depth]> {
+  return Tp.tuple(horizontalPosition as HorizontalPosition, depth as Depth);
+}
 
 const part1 = pipe(
   directionStream,
   S.runReduce(
-    Tp.tuple(0, 0),
+    makePosition(0, 0),
     ({ tuple: [horizontalPosition, depth] }, direction) =>
       foldDirection_(
         direction,
-        (up) => Tp.tuple(horizontalPosition, depth - up.value),
-        (down) => Tp.tuple(horizontalPosition, depth + down.value),
-        (forward) => Tp.tuple(horizontalPosition + forward.value, depth)
+        (up) => makePosition(horizontalPosition, depth - up.value),
+        (down) => makePosition(horizontalPosition, depth + down.value),
+        (forward) => makePosition(horizontalPosition + forward.value, depth)
       )
   ),
   T.map(({ tuple: [horizontalPosition, depth] }) => horizontalPosition * depth)
 );
 
+function makePositionWithAim(
+  horizontalPosition: number,
+  depth: number,
+  aim: number
+): Tp.Tuple<[HorizontalPosition, Depth, Aim]> {
+  return Tp.tuple(
+    horizontalPosition as HorizontalPosition,
+    depth as Depth,
+    aim as Aim
+  );
+}
+
 const part2 = pipe(
   directionStream,
   S.runReduce(
-    Tp.tuple(0, 0, 0),
+    makePositionWithAim(0, 0, 0),
     ({ tuple: [horizontalPosition, depth, aim] }, direction) =>
       foldDirection_(
         direction,
-        (up) => Tp.tuple(horizontalPosition, depth, aim - up.value),
-        (down) => Tp.tuple(horizontalPosition, depth, aim + down.value),
+        (up) => makePositionWithAim(horizontalPosition, depth, aim - up.value),
+        (down) =>
+          makePositionWithAim(horizontalPosition, depth, aim + down.value),
         (forward) =>
-          Tp.tuple(
+          makePositionWithAim(
             horizontalPosition + forward.value,
             depth + aim * forward.value,
             aim

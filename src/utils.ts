@@ -1,4 +1,5 @@
 import * as T from "@effect-ts/core/Effect";
+import * as BR from "@effect-ts/core/Branded";
 import * as O from "@effect-ts/core/Option";
 import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as AR from "@effect-ts/core/Collections/Immutable/Array";
@@ -6,8 +7,35 @@ import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { createReadStream } from "fs";
 import { pipe } from "@effect-ts/core";
 
-export function readFileAsStream(path: string) {
-  return S.async<unknown, Error, string>((emit) => {
+export class ReadFileError extends Error {
+  readonly _tag = "ReadFileError";
+
+  constructor(message: string, readonly options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = this._tag;
+  }
+}
+
+export class ParseError extends Error {
+  readonly _tag = "ParseError";
+
+  constructor(message: string, readonly options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = this._tag;
+  }
+}
+
+export class NotFoundError extends Error {
+  readonly _tag = "NotFoundError";
+
+  constructor(message: string, readonly options: { cause?: unknown } = {}) {
+    super(message);
+    this.name = this._tag;
+  }
+}
+
+export function readFileAsStream(path: string): S.IO<ReadFileError, string> {
+  return S.async<unknown, ReadFileError, string>((emit) => {
     const readStream = createReadStream(path, "utf-8");
 
     readStream.on("readable", () => {
@@ -18,7 +46,9 @@ export function readFileAsStream(path: string) {
     });
 
     readStream.on("error", (error) => {
-      emit.fail(error);
+      emit.fail(
+        new ReadFileError(`Error while reading file ${path}`, { cause: error })
+      );
     });
 
     readStream.on("end", () => {
@@ -27,11 +57,11 @@ export function readFileAsStream(path: string) {
   });
 }
 
-export function parseInteger(str: string) {
+export function parseInteger(str: string): O.Option<number> {
   return O.fromPredicate_(Number(str), (result) => !Number.isNaN(result));
 }
 
-export function bitArrayToNumber(arr: AR.Array<number>) {
+export function bitArrayToNumber(arr: AR.Array<Bit>): number {
   return AR.reduceWithIndex_(
     arr,
     0,
@@ -39,12 +69,14 @@ export function bitArrayToNumber(arr: AR.Array<number>) {
   );
 }
 
-export function stringToBitArray(str: string) {
-  return AR.map_(AR.from(str), (bit) => (bit === "0" ? 0 : 1));
+export type Bit = BR.Branded<0 | 1, "Bit">;
+
+export function stringToBitArray(str: string): AR.Array<Bit> {
+  return AR.map_(AR.from(str), (bit) => (bit === "0" ? 0 : 1) as Bit);
 }
 
-export function bitAt(offset: number, n: number) {
-  return (n >>> offset) & 1;
+export function bitAt(offset: number, n: number): Bit {
+  return ((n >>> offset) & 1) as Bit;
 }
 
 export function generateBitMask(n: number): number {
@@ -59,7 +91,7 @@ export function generateBitMask(n: number): number {
   return result;
 }
 
-export function printLine(...args: any[]) {
+export function printLine(...args: any[]): T.UIO<void> {
   return T.succeedWith(() => {
     console.log(...args);
   });
@@ -67,7 +99,7 @@ export function printLine(...args: any[]) {
 
 export function printResults<
   Effects extends readonly T.Effect<any, any, any>[]
->(day: number, ...parts: Effects) {
+>(day: number, ...parts: Effects): Promise<void> {
   return pipe(
     T.forEach_(CK.zipWithIndex(CK.from(parts)), ({ tuple: [part, index] }) =>
       T.chain_(part, (result) =>
@@ -79,7 +111,7 @@ export function printResults<
   );
 }
 
-export function range(a: number, b: number) {
+export function range(a: number, b: number): CK.Chunk<number> {
   if (a < b) {
     return CK.map_(CK.range(0, b - a), (x) => a + x);
   }

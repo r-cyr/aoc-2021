@@ -53,28 +53,20 @@ function findRating<R, E>(
           S.run_(oneStream, SK.collectAll())
         )
       );
-      const zerosSize = CK.size(zeros);
-      const onesSize = CK.size(ones);
 
-      if (type === "co2") {
-        const nextValues = onesSize >= zerosSize ? zeros : ones;
-        const nextStream = S.fromChunk(nextValues);
-
-        if (CK.size(nextValues) === 1) {
-          return nextStream;
+      const nextValues = (() => {
+        if (type === "oxygen") {
+          return CK.size(ones) >= CK.size(zeros) ? ones : zeros;
         } else {
-          return findRating(nextStream, type, offset + 1);
+          return CK.size(zeros) <= CK.size(ones) ? zeros : ones;
         }
-      } else {
-        const nextValues = onesSize >= zerosSize ? ones : zeros;
-        const nextStream = S.fromChunk(nextValues);
+      })();
 
-        if (CK.size(nextValues) === 1) {
-          return nextStream;
-        } else {
-          return findRating(nextStream, type, offset + 1);
-        }
-      }
+      const nextStream = S.fromChunk(nextValues);
+
+      return CK.size(nextValues) > 1
+        ? findRating(nextStream, type, offset + 1)
+        : nextStream;
     })
   );
 }

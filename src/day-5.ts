@@ -5,7 +5,13 @@ import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as MP from "@effect-ts/core/Collections/Immutable/Map";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
-import { printResults, readFileAsStream, parseInteger, range } from "./utils";
+import {
+  printResults,
+  readFileAsStream,
+  parseInteger,
+  range,
+  ParseError,
+} from "./utils";
 
 const fileStream = readFileAsStream("./inputs/day-5.txt");
 
@@ -47,7 +53,7 @@ const hydrothermalVentStream = pipe(
   fileStream,
   S.splitLines,
   S.map(parseLineSegment),
-  S.some
+  S.someOrFail(() => new ParseError("Could not parse LineSegments"))
 );
 
 function isHorizontal({ a, b }: LineSegment) {

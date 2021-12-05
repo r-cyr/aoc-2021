@@ -78,3 +78,11 @@ export function printResults<
     T.runPromise
   );
 }
+
+export function range(a: number, b: number) {
+  if (a < b) {
+    return CK.map_(CK.range(0, b - a), (x) => a + x);
+  }
+
+  return CK.map_(CK.range(0, a - b), (x) => a - x);
+}

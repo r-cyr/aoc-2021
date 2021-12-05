@@ -27,6 +27,7 @@
     "dev:day1": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-1.ts",
     "dev:day2": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-2.ts",
     "dev:day3": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-3.ts",
-    "dev:day4": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-4.ts"
+    "dev:day4": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-4.ts",
+    "dev:day5": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-5.ts"
   }
 }

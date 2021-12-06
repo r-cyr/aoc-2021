@@ -51,7 +51,7 @@ const drawStream = pipe(
   fileStream,
   S.splitLines,
   S.take(1),
-  S.chain((line) => S.fromIterable(STR.split_(STR.trim(line), ","))),
+  S.splitOn(","),
   S.map((_) => parseInteger(_) as O.Option<Draw>),
   S.someOrFail(() => new ParseError(`Could not parse Draws`))
 );

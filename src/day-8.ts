@@ -1,4 +1,3 @@
-import * as T from "@effect-ts/core/Effect";
 import * as O from "@effect-ts/core/Option";
 import * as BR from "@effect-ts/core/Branded";
 import * as STR from "@effect-ts/core/String";
@@ -10,7 +9,7 @@ import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { flow, pipe, Predicate } from "@effect-ts/core/Function";
 import { printResults, readFileAsStream, range, ParseError } from "./utils";
-import { string } from "@effect-ts/system/Ord";
+import { string } from "@effect-ts/core/Ord";
 
 type SignalPattern = BR.Branded<string, "SignalPattern">;
 type OutputValue = BR.Branded<string, "OutputValue">;
@@ -83,29 +82,39 @@ function makeDecoder(signalPatterns: AR.Array<SignalPattern>) {
       )
   );
 
+  function safeHead<T>(set: HS.HashSet<T>) {
+    return pipe(set, AR.from, AR.head);
+  }
+
+  function containsEverySegmentFrom(target: SignalPattern) {
+    return (source: SignalPattern) =>
+      target.split("").every((l) => source.includes(l));
+  }
+
+  function canBeContainedBySegmentsOf(target: SignalPattern) {
+    return (source: SignalPattern) =>
+      source.split("").every((l) => target.includes(l));
+  }
+
+  function findAndSplit<T>(set: HS.HashSet<T>, pred: Predicate<T>) {
+    return pipe(
+      O.fromPredicate_(
+        HS.partition_(set, pred),
+        ({ right }) => HS.size(right) > 0
+      ),
+      O.chain(({ left, right }) =>
+        O.map_(safeHead(right), (head) => Tp.tuple(head, left))
+      )
+    );
+  }
+
+  function asOutputValue(_: SignalPattern) {
+    const outputValue: string = _;
+
+    return outputValue as OutputValue;
+  }
+
   return O.gen(function* (_) {
-    const safeHead = <T>(set: HS.HashSet<T>) => pipe(set, AR.from, AR.head);
-
-    const containsEverySegmentFrom =
-      (target: SignalPattern) => (source: SignalPattern) =>
-        target.split("").every((l) => source.includes(l));
-
-    const canBeContainedBySegmentsOf =
-      (target: SignalPattern) => (source: SignalPattern) =>
-        source.split("").every((l) => target.includes(l));
-
-    const findAndSplit = <T>(set: HS.HashSet<T>, pred: Predicate<T>) => {
-      const result = HS.partition_(set, pred);
-
-      if (HS.size(result.left) === 0) {
-        return O.none;
-      }
-
-      return O.map_(safeHead(result.right), (head) =>
-        Tp.tuple(head, result.left)
-      );
-    };
-
     const _1 = yield* _(O.chain_(HM.get_(signalsByLength, 2), safeHead));
     const _4 = yield* _(O.chain_(HM.get_(signalsByLength, 4), safeHead));
     const _7 = yield* _(O.chain_(HM.get_(signalsByLength, 3), safeHead));
@@ -138,8 +147,7 @@ function makeDecoder(signalPatterns: AR.Array<SignalPattern>) {
     return AR.reduceWithIndex_(
       [_0, _1, _2, _3, _4, _5, _6, _7, _8, _9],
       HM.make<OutputValue, number>(),
-      (index, map, value) =>
-        HM.set_(map, value as unknown as OutputValue, index)
+      (index, map, value) => HM.set_(map, asOutputValue(value), index)
     );
   });
 }
@@ -147,13 +155,14 @@ function makeDecoder(signalPatterns: AR.Array<SignalPattern>) {
 const part2 = pipe(
   signalPatternsAndOutputValuesStream,
   S.map(({ tuple: [signalPatterns, outputs] }) =>
-    O.map_(makeDecoder(signalPatterns), (dictionary) =>
+    O.chain_(makeDecoder(signalPatterns), (dictionary) =>
       pipe(
         CK.zip_(range(outputs.length - 1, 0), CK.from(outputs)),
-        CK.reduceRight(
-          0,
-          ({ tuple: [index, output] }, acc) =>
-            acc + HM.unsafeGet_(dictionary, output) * 10 ** index
+        CK.reduceRight(O.some(0), ({ tuple: [index, output] }, acc) =>
+          pipe(
+            O.zip_(acc, HM.get_(dictionary, output)),
+            O.map(({ tuple: [acc, num] }) => acc + num * 10 ** index)
+          )
         )
       )
     )

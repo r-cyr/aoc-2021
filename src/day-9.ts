@@ -217,21 +217,27 @@ function findBasinsAtHeight(
   );
 }
 
+function findAllBasins(heightMap: HeightMap) {
+  return pipe(
+    range(MAX_HEIGHT - 1, 1) as unknown as CK.Chunk<Height>,
+    CK.reduce(
+      Tp.tuple(AR.empty as AR.Array<number>, HS.make<LocationHash>()),
+      ({ tuple: [result, alreadyMapped] }, height) =>
+        Tp.update_(
+          findBasinsAtHeight(heightMap, height, alreadyMapped),
+          0,
+          AR.concat(result)
+        )
+    ),
+    Tp.get(0)
+  );
+}
+
 const part2 = pipe(
   heightMap,
-  T.map((heightMap) =>
-    pipe(
-      range(8, 1) as unknown as CK.Chunk<Height>,
-      CK.reduce(
-        Tp.tuple(AR.empty as AR.Array<number>, HS.make<LocationHash>()),
-        ({ tuple: [result, alreadyMapped] }, height) =>
-          Tp.update_(
-            findBasinsAtHeight(heightMap, height, alreadyMapped),
-            0,
-            AR.concat(result)
-          )
-      ),
-      Tp.get(0),
+  T.map(
+    flow(
+      findAllBasins,
       AR.sort(inverted(number)),
       AR.splitAt(3),
       Tp.get(0),

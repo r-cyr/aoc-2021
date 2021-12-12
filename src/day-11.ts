@@ -18,10 +18,6 @@ import {
 
 type Octopus = BR.Branded<number, "Octopus">;
 
-function makeOctopus(octopus: number) {
-  return octopus as Octopus;
-}
-
 type Grid = BR.Branded<HM.HashMap<Location, Octopus>, "Grid">;
 
 function makeGrid() {
@@ -49,7 +45,7 @@ const grid = pipe(
       S.someOrFail(() => new ParseError("Could not convert row to numbers")),
       S.zipWithIndex,
       S.map(({ tuple: [octopus, x] }) =>
-        Tp.tuple(makeOctopus(octopus), makeLocation(x, y))
+        Tp.tuple(octopus as Octopus, makeLocation(x, y))
       )
     )
   ),

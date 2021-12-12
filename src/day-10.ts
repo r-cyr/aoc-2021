@@ -182,4 +182,4 @@ const part2 = pipe(
   T.map((_) => getMiddleScore(_ as CK.Chunk<Score>))
 );
 
-printResults(9, part1, part2).catch(console.error);
+printResults(10, part1, part2).catch(console.error);

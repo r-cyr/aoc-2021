@@ -5,6 +5,7 @@
   "license": "MIT",
   "dependencies": {
     "@effect-ts/core": "^0.48.3",
+    "@effect-ts/node": "^0.31.0",
     "@effect-ts/tracing-plugin": "^0.14.21",
     "@types/node": "^16.11.10",
     "@typescript-eslint/eslint-plugin": "^5.4.0",
@@ -33,6 +34,7 @@
     "dev:day7": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-7.ts",
     "dev:day8": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-8.ts",
     "dev:day9": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-9.ts",
-    "dev:day10": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-10.ts"
+    "dev:day10": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-10.ts",
+    "dev:day11": "ts-node -r @effect-ts/core/Tracing/Enable ./src/day-11.ts"
   }
 }

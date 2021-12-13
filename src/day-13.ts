@@ -10,6 +10,7 @@ import * as HS from "@effect-ts/core/Collections/Immutable/HashSet";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
 import {
+  NotFoundError,
   ParseError,
   parseInteger,
   printResults,
@@ -30,6 +31,10 @@ interface VerticalFold {
 }
 
 type Fold = HorizontalFold | VerticalFold;
+
+function makeFold(type: Fold["_tag"], value: number): Fold {
+  return { _tag: type, value };
+}
 
 function foldFold<Z1, Z2>(
   fold: Fold,
@@ -62,7 +67,7 @@ const coordinatesAndFolds = pipe(
           ) as O.Option<Coordinates>
       ),
       S.someOrFail(() => new ParseError("Could not parse Coordinates")),
-      S.runCollect
+      S.runReduce(HS.make<Coordinates>(), (set, coords) => HS.add_(set, coords))
     );
 
     const allFolds = pipe(
@@ -70,26 +75,20 @@ const coordinatesAndFolds = pipe(
       S.map((line) =>
         pipe(
           line,
-          (line) => line.slice(11),
+          STR.slice(11, line.length),
           STR.split("="),
           ([axis, value]) =>
             pipe(
               O.fromNullable(value),
               O.chain(parseInteger),
               O.zip(O.fromNullable(axis)),
-              O.map(({ tuple: [value, axis] }): Fold => {
-                if (axis === "x") {
-                  return {
-                    _tag: "VerticalFold",
-                    value,
-                  };
-                }
-
-                return {
-                  _tag: "HorizontalFold",
-                  value,
-                };
-              })
+              O.map(
+                ({ tuple: [value, axis] }): Fold =>
+                  makeFold(
+                    axis === "x" ? "VerticalFold" : "HorizontalFold",
+                    value
+                  )
+              )
             )
         )
       ),
@@ -97,7 +96,7 @@ const coordinatesAndFolds = pipe(
       S.runCollect
     );
 
-    return T.zip_(allCoords, allFolds);
+    return T.zipPar_(allCoords, allFolds);
   })
 );
 
@@ -116,53 +115,41 @@ function getFoldedCoordinates(fold: Fold) {
     );
 }
 
-function mapHashSet<A, B>(hs: HS.HashSet<A>, f: (a: A) => B) {
-  return HS.reduce_(hs, HS.make<B>(), (newHs, elem) => HS.add_(newHs, f(elem)));
-}
-
 function printAsGrid(coords: HS.HashSet<Coordinates>) {
-  const width = HS.reduce_(coords, 0, (s, { tuple: [x, _] }) => Math.max(s, x));
-  const height = HS.reduce_(coords, 0, (s, { tuple: [_, y] }) =>
-    Math.max(s, y)
+  const { w: width, h: height } = HS.reduce_(
+    coords,
+    { w: 0, h: 0 },
+    ({ w, h }, { tuple: [x, y] }) => ({ w: Math.max(w, x), h: Math.max(h, y) })
   );
 
-  return [
-    ...CK.map_(range(0, height), (y) =>
-      [
-        ...CK.map_(range(0, width), (x) =>
-          HS.has_(coords, Tp.tuple(x, y)) ? "#" : " "
-        ),
-      ].join("")
+  return pipe(
+    range(0, height),
+    CK.map((y) =>
+      pipe(
+        range(0, width),
+        CK.map((x) => (HS.has_(coords, Tp.tuple(x, y)) ? "#" : " ")),
+        CK.join("")
+      )
     ),
-  ].join("\n");
+    CK.join("\n")
+  );
 }
 
 const part1 = pipe(
   coordinatesAndFolds,
-  T.map(({ tuple: [coords, folds] }) => {
-    const firstFold = CK.unsafeHead(folds);
-
-    const foldedCoordsSet = mapHashSet(
-      CK.reduce_(coords, HS.make<Coordinates>(), (set, coords) =>
-        HS.add_(set, coords)
-      ),
-      getFoldedCoordinates(firstFold)
-    );
-    return HS.size(foldedCoordsSet);
-  })
+  T.map(({ tuple: [coords, folds] }) =>
+    O.map_(CK.head(folds), (fold) =>
+      pipe(coords, HS.map(getFoldedCoordinates(fold)), HS.size)
+    )
+  ),
+  T.someOrFail(() => new NotFoundError("Fold was not found"))
 );
 
 const part2 = pipe(
   coordinatesAndFolds,
   T.map(({ tuple: [coords, folds] }) => {
-    const coordsSet = CK.reduce_(
-      coords,
-      HS.make<Coordinates>(),
-      (set, coords) => HS.add_(set, coords) as HS.HashSet<Coordinates>
-    );
-
-    const foldedCoordsSet = CK.reduce_(folds, coordsSet, (set, fold) =>
-      mapHashSet(set, getFoldedCoordinates(fold))
+    const foldedCoordsSet = CK.reduce_(folds, coords, (set, fold) =>
+      HS.map_(set, getFoldedCoordinates(fold))
     );
 
     return `\n${printAsGrid(foldedCoordsSet)}`;

@@ -6,6 +6,7 @@ import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { createReadStream } from "fs";
 import { pipe } from "@effect-ts/core";
+import { Predicate } from "@effect-ts/core/Function";
 
 export class ReadFileError extends Error {
   readonly _tag = "ReadFileError";
@@ -117,4 +118,70 @@ export function range(a: number, b: number): CK.Chunk<number> {
   }
 
   return CK.map_(CK.range(0, a - b), (x) => a - x);
+}
+
+/**
+ * Returns true if all the elements of the array match a predicate
+ */
+export function forAll_<A>(as: AR.Array<A>, pred: Predicate<A>): boolean {
+  for (const a of as) {
+    if (!pred(a)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Returns true if all the elements of the array match a predicate
+ */
+export function forAll<A>(pred: Predicate<A>) {
+  return (as: AR.Array<A>) => forAll_(as, pred);
+}
+
+/**
+ * Returns true if the array contains the element
+ */
+export function includes_<A>(as: AR.Array<A>, elem: A): boolean {
+  for (const a of as) {
+    if (a === elem) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Returns true if the array contains the element
+ *
+ * @ets_data_first includes_
+ */
+export function includes<A>(elem: A) {
+  return (as: AR.Array<A>) => includes_(as, elem);
+}
+
+/**
+ * Returns a copy of the array
+ */
+export function copy<A>(as: AR.Array<A>): AR.Array<A> {
+  return as.slice(0);
+}
+
+export function size<T>(arr: AR.Array<T>) {
+  return arr.length;
+}
+
+/**
+ * Converts the string to uppercase
+ */
+export function toUpperCase(str: string): string {
+  return str.toUpperCase();
+}
+/**
+ * Converts the string to uppercase
+ */
+export function toLowerCase(str: string): string {
+  return str.toLowerCase();
 }

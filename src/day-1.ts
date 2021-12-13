@@ -13,24 +13,23 @@ import {
 const numberStream = pipe(
   readFileAsStream("./inputs/day-1.txt"),
   S.splitLines,
-  S.mapEffect((_) =>
-    pipe(
-      parseInteger(_),
-      T.fromOption,
-      T.mapError(() => new ParseError(`${_} is not a number`))
-    )
-  )
+  S.map(parseInteger),
+  S.someOrFail(() => new ParseError(`Could not parse numbers`))
 );
 
 function runMeasurements<R, E>(
   self: S.Stream<R, E, Tp.Tuple<[O.Option<number>, number]>>
 ): T.Effect<R, E, number> {
-  return S.runReduce_(self, 0, (acc, { tuple: [ma, b] }) =>
-    O.fold_(
-      ma,
-      () => acc,
-      (a) => acc + (b > a ? 1 : 0)
-    )
+  return S.runReduce_(
+    self,
+    0,
+    (acc, { tuple: [ma, b] }) =>
+      acc +
+      O.fold_(
+        ma,
+        () => 0,
+        (a) => (b > a ? 1 : 0)
+      )
   );
 }
 

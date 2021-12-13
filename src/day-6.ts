@@ -16,13 +16,8 @@ import {
 const lanternFishStream = pipe(
   readFileAsStream("./inputs/day-6.txt"),
   S.splitOn(","),
-  S.mapEffect((_) =>
-    pipe(
-      parseInteger(_) as O.Option<LanternFish>,
-      T.fromOption,
-      T.mapError(() => new ParseError(`${_} is not a number`))
-    )
-  )
+  S.map((_) => parseInteger(_) as O.Option<LanternFish>),
+  S.someOrFail(() => new ParseError("Could not parse lanterns"))
 );
 
 type LanternFish = BR.Branded<number, "LanternFish">;

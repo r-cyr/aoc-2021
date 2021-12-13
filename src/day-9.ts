@@ -20,37 +20,28 @@ import { inverted, number } from "@effect-ts/core/Ord";
 
 type Height = BR.Branded<number, "Height">;
 
-interface Location {
-  x: number;
-  y: number;
-}
+type Location = BR.Branded<Tp.Tuple<[number, number]>, "Location">;
 
 const directions = ["up", "right", "down", "left"] as const;
 
 type Direction = typeof directions[number];
 
-function move(direction: Direction, { x, y }: Location) {
+function move(direction: Direction, { tuple: [x, y] }: Location) {
   switch (direction) {
     case "up":
-      return { x, y: y - 1 };
+      return Tp.tuple(x, y - 1) as Location;
     case "right":
-      return { x: x + 1, y };
+      return Tp.tuple(x + 1, y) as Location;
     case "down":
-      return { x, y: y + 1 };
+      return Tp.tuple(x, y + 1) as Location;
     case "left":
-      return { x: x - 1, y };
+      return Tp.tuple(x - 1, y) as Location;
   }
 }
 
 type RiskLevel = BR.Branded<number, "RiskLevel">;
 
 type HeightMap = BR.Branded<CK.Chunk<CK.Chunk<Height>>, "HeightMap">;
-
-type LocationHash = BR.Branded<"number", "LocationHash">;
-
-function makeLocationHash({ x, y }: Location) {
-  return `${x}-${y}` as LocationHash;
-}
 
 const MAX_HEIGHT = 9;
 
@@ -66,7 +57,7 @@ function succ(n: number) {
   return n + 1;
 }
 
-function lookup(heightMap: HeightMap, { x, y }: Location) {
+function lookup(heightMap: HeightMap, { tuple: [x, y] }: Location) {
   return pipe(heightMap, CK.get(y), O.chain(CK.get(x)));
 }
 
@@ -76,7 +67,7 @@ function mapHeightMap<B>(
 ) {
   return CK.map_(CK.zipWithIndex(heightMap), ({ tuple: [row, y] }) =>
     CK.map_(CK.zipWithIndex(row), ({ tuple: [height, x] }) =>
-      f(height, { x, y })
+      f(height, Tp.tuple(x, y) as Location)
     )
   );
 }
@@ -91,7 +82,7 @@ function reduceHeightMap<S>(
     state,
     (s, { tuple: [row, y] }) =>
       CK.reduce_(CK.zipWithIndex(row), s, (s, { tuple: [elem, x] }) =>
-        f(s, elem, { x, y })
+        f(s, elem, Tp.tuple(x, y) as Location)
       )
   );
 }
@@ -125,27 +116,25 @@ const part1 = pipe(
 function lookupValidLocation(
   heightMap: HeightMap,
   location: Location,
-  alreadyMapped: HS.HashSet<LocationHash>
+  alreadyMapped: HS.HashSet<Location>
 ) {
   return O.filter_(
     lookup(heightMap, location),
-    (newHeight) =>
-      newHeight < MAX_HEIGHT &&
-      !HS.has_(alreadyMapped, makeLocationHash(location))
+    (newHeight) => newHeight < MAX_HEIGHT && !HS.has_(alreadyMapped, location)
   );
 }
 
 function findBasinAtCoord(
   heightMap: HeightMap,
   location: Location,
-  alreadyMapped: HS.HashSet<LocationHash>
+  alreadyMapped: HS.HashSet<Location>
 ) {
   function exploreDirection(
     direction: Direction,
     location: Location,
-    alreadyMapped: HS.HashSet<LocationHash>
+    alreadyMapped: HS.HashSet<Location>
   ) {
-    const currentLocationHash = makeLocationHash(location);
+    const currentLocationHash = location;
     const newLocation = move(direction, location);
     const alreadyMappedWithNewLocation = HS.add_(
       alreadyMapped,
@@ -167,14 +156,11 @@ function findBasinAtCoord(
   const go = (
     heightMap: HeightMap,
     location: Location,
-    alreadyMapped: HS.HashSet<LocationHash>
-  ): Tp.Tuple<[number, HS.HashSet<LocationHash>]> => {
+    alreadyMapped: HS.HashSet<Location>
+  ): Tp.Tuple<[number, HS.HashSet<Location>]> => {
     const height = lookupOrMaxHeight(heightMap, location);
 
-    if (
-      height === MAX_HEIGHT ||
-      HS.has_(alreadyMapped, makeLocationHash(location))
-    ) {
+    if (height === MAX_HEIGHT || HS.has_(alreadyMapped, location)) {
       return Tp.tuple(0, alreadyMapped);
     }
 
@@ -196,7 +182,7 @@ function findBasinAtCoord(
 function findBasinsAtHeight(
   heightMap: HeightMap,
   height: Height,
-  alreadyMapped: HS.HashSet<LocationHash>
+  alreadyMapped: HS.HashSet<Location>
 ) {
   return reduceHeightMap(
     heightMap,
@@ -221,7 +207,7 @@ function findAllBasins(heightMap: HeightMap) {
   return pipe(
     range(MAX_HEIGHT - 1, 1) as unknown as CK.Chunk<Height>,
     CK.reduce(
-      Tp.tuple(AR.empty as AR.Array<number>, HS.make<LocationHash>()),
+      Tp.tuple(AR.empty as AR.Array<number>, HS.make<Location>()),
       ({ tuple: [result, alreadyMapped] }, height) =>
         Tp.update_(
           findBasinsAtHeight(heightMap, height, alreadyMapped),

@@ -1,8 +1,11 @@
 import * as T from "@effect-ts/core/Effect";
 import * as O from "@effect-ts/core/Option";
-import * as RefM from "@effect-ts/core/Effect/RefM";
+import * as STR from "@effect-ts/core/String";
+import * as BR from "@effect-ts/core/Branded";
 import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
-import * as MP from "@effect-ts/core/Collections/Immutable/Map";
+import * as AR from "@effect-ts/core/Collections/Immutable/Array";
+import * as HM from "@effect-ts/core/Collections/Immutable/HashMap";
+import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
 import {
@@ -11,14 +14,12 @@ import {
   parseInteger,
   range,
   ParseError,
+  size,
 } from "./utils";
 
 const fileStream = readFileAsStream("./inputs/day-5.txt");
 
-interface Point {
-  readonly x: number;
-  readonly y: number;
-}
+type Point = BR.Branded<Tp.Tuple<[number, number]>, "Point">;
 
 interface LineSegment {
   readonly a: Point;
@@ -26,26 +27,25 @@ interface LineSegment {
 }
 
 function parseLineSegment(str: string): O.Option<LineSegment> {
-  const tokens = [
-    ...str.matchAll(/^(\d+),(\d+) -> (\d+),(\d+)$/g),
-  ].flat() as string[];
-
-  if (tokens.length !== 5) {
-    return O.none;
-  }
-
   return pipe(
-    O.struct({
-      x: parseInteger(tokens[1]!),
-      y: parseInteger(tokens[2]!),
-    }),
-    O.zip(
-      O.struct({
-        x: parseInteger(tokens[3]!),
-        y: parseInteger(tokens[4]!),
-      })
+    STR.matchAll_(str, /^(\d+),(\d+) -> (\d+),(\d+)$/g),
+    O.map(AR.flatten),
+    O.filter((tokens) => size(tokens) === 5),
+    O.chain((tokens) =>
+      pipe(
+        O.map_(
+          O.tuple(parseInteger(tokens[1]!), parseInteger(tokens[2]!)),
+          Tp.fromNative
+        ),
+        O.zip(
+          O.map_(
+            O.tuple(parseInteger(tokens[3]!), parseInteger(tokens[4]!)),
+            Tp.fromNative
+          )
+        )
+      )
     ),
-    O.map(({ tuple: [a, b] }) => ({ a, b }))
+    O.map(({ tuple: [a, b] }) => ({ a, b } as LineSegment))
   );
 }
 
@@ -57,11 +57,11 @@ const hydrothermalVentStream = pipe(
 );
 
 function isHorizontal({ a, b }: LineSegment) {
-  return a.y === b.y;
+  return Tp.get_(a, 1) === Tp.get_(b, 1);
 }
 
 function isVertical({ a, b }: LineSegment) {
-  return a.x === b.x;
+  return Tp.get_(a, 0) === Tp.get_(b, 0);
 }
 
 type IgnoreFlag = "ignore-diagonals" | "ignore-none";
@@ -69,55 +69,52 @@ type IgnoreFlag = "ignore-diagonals" | "ignore-none";
 function lineSegmentToPoints(ignoreFlag: IgnoreFlag) {
   return (ls: LineSegment): CK.Chunk<Point> => {
     const { a, b } = ls;
+    const {
+      tuple: [ax, ay],
+    } = a;
+    const {
+      tuple: [bx, by],
+    } = b;
 
     if (isHorizontal(ls)) {
-      return CK.map_(range(a.x, b.x), (x) => ({ x, y: a.y }));
+      return CK.map_(range(ax, bx), (x) => Tp.tuple(x, ay) as Point);
     }
 
     if (isVertical(ls)) {
-      return CK.map_(range(a.y, b.y), (y) => ({ x: a.x, y }));
+      return CK.map_(range(ay, by), (y) => Tp.tuple(ax, y) as Point);
     }
 
     if (ignoreFlag === "ignore-diagonals") {
       return CK.empty<Point>();
     }
 
-    return CK.zipWith_(range(a.x, b.x), range(a.y, b.y), (x, y) => ({ x, y }));
+    return CK.zipWith_(
+      range(ax, bx),
+      range(ay, by),
+      (x, y) => Tp.tuple(x, y) as Point
+    );
   };
 }
 
-function hashPoint(point: Point): string {
-  return `${point.x}-${point.y}`;
-}
-
 function makePart(ignoreFlag: IgnoreFlag) {
-  return T.gen(function* (_) {
-    const mapRef = yield* _(RefM.makeRefM<Map<string, number>>(new Map()));
-
-    yield* _(
-      pipe(
-        hydrothermalVentStream,
-        S.mapConcatChunk(lineSegmentToPoints(ignoreFlag)),
-        S.mapEffect((point) =>
-          RefM.update_(mapRef, (map) =>
-            T.succeedWith(() => {
-              const hash = hashPoint(point);
-              const current = map.get(hash) ?? 0;
-
-              return map.set(hash, current + 1);
-            })
-          )
-        ),
-        S.runDrain
+  return pipe(
+    hydrothermalVentStream,
+    S.mapConcatChunk(lineSegmentToPoints(ignoreFlag)),
+    S.buffer(100), // Why do I get a stack overflow without buffering?
+    S.runReduce(HM.make<Point, number>(), (map, point) =>
+      HM.modify_(
+        map,
+        point,
+        O.fold(
+          () => O.some(1),
+          (n) => O.some(n + 1)
+        )
       )
-    );
-
-    return pipe(
-      yield* _(mapRef.get),
-      MP.filterMap(O.fromPredicate((n) => n >= 2)),
-      MP.size
-    );
-  });
+    ),
+    T.map((map) =>
+      pipe(map, HM.filterMap(O.fromPredicate((n) => n >= 2)), HM.size)
+    )
+  );
 }
 
 const part1 = makePart("ignore-diagonals");

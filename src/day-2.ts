@@ -2,6 +2,8 @@ import * as T from "@effect-ts/core/Effect";
 import * as BR from "@effect-ts/core/Branded";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as STR from "@effect-ts/core/String";
+import * as DT from "@effect-ts/core/Collections/Immutable/Dictionary";
+import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as O from "@effect-ts/core/Option";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
@@ -11,6 +13,7 @@ import {
   printResults,
   readFileAsStream,
 } from "./utils";
+import { string } from "@effect-ts/core/Equal";
 
 interface Up {
   readonly _tag: "Up";
@@ -52,13 +55,14 @@ function foldDirection_<Z1, Z2, Z3>(
 }
 
 function parseDirection(input: string): O.Option<Direction> {
-  const directionMap: Record<string, Direction["_tag"]> = {
+  const directionMap: DT.Dictionary<Direction["_tag"]> = {
     up: "Up",
     down: "Down",
     forward: "Forward",
   };
   const isValidDirection = (dir: string) =>
-    Object.keys(directionMap).includes(dir);
+    pipe(DT.keys(directionMap), AR.elem(string)(dir));
+
   const [dir, num] = STR.split_(input, /\s+/);
 
   return O.struct({
@@ -74,13 +78,8 @@ function parseDirection(input: string): O.Option<Direction> {
 const directionStream = pipe(
   readFileAsStream("./inputs/day-2.txt"),
   S.splitLines,
-  S.mapEffect((line) =>
-    pipe(
-      parseDirection(line),
-      T.fromOption,
-      T.mapError(() => new ParseError(`${line} is not a Direction`))
-    )
-  )
+  S.map(parseDirection),
+  S.someOrFail(() => new ParseError(`Could not parse Directions`))
 );
 
 function makePosition(

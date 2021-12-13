@@ -7,7 +7,13 @@ import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
-import { printResults, readFileAsStream, ReadFileError } from "./utils";
+import {
+  copy,
+  includes_,
+  printResults,
+  readFileAsStream,
+  ReadFileError,
+} from "./utils";
 import { number } from "@effect-ts/core/Ord";
 
 const openingCharacters = ["(", "[", "{", "<"] as const;
@@ -15,7 +21,7 @@ const openingCharacters = ["(", "[", "{", "<"] as const;
 type OpeningCharacter = typeof openingCharacters[number];
 
 function isOpeningCharacter(c: Character): c is OpeningCharacter {
-  return (openingCharacters as unknown as string[]).includes(c);
+  return includes_(openingCharacters, c);
 }
 
 const closingCharacters = [")", "]", "}", ">"] as const;
@@ -68,7 +74,7 @@ class Stack<T> {
   }
 
   toArray() {
-    return this.data.slice();
+    return copy(this.data);
   }
 }
 

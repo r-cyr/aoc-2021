@@ -20,13 +20,8 @@ const MAX_ALIGNMENT = 500;
 const crabStream = pipe(
   readFileAsStream("./inputs/day-7.txt"),
   S.splitOn(","),
-  S.mapEffect((_) =>
-    pipe(
-      parseInteger(_) as O.Option<Crab>,
-      T.fromOption,
-      T.mapError(() => new ParseError(`${_} is not a number`))
-    )
-  )
+  S.map((_) => parseInteger(_) as O.Option<Crab>),
+  S.someOrFail(() => new ParseError("Could not parse Crabs"))
 );
 
 function findLowestAlignmentFuelCost<

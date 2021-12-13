@@ -8,7 +8,13 @@ import * as HS from "@effect-ts/core/Collections/Immutable/HashSet";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { flow, pipe, Predicate } from "@effect-ts/core/Function";
-import { printResults, readFileAsStream, range, ParseError } from "./utils";
+import {
+  printResults,
+  readFileAsStream,
+  range,
+  ParseError,
+  forAll,
+} from "./utils";
 import { string } from "@effect-ts/core/Ord";
 
 type SignalPattern = BR.Branded<string, "SignalPattern">;
@@ -88,12 +94,18 @@ function makeDecoder(signalPatterns: AR.Array<SignalPattern>) {
 
   function containsEverySegmentFrom(target: SignalPattern) {
     return (source: SignalPattern) =>
-      target.split("").every((l) => source.includes(l));
+      pipe(
+        STR.split_(target, ""),
+        forAll((l) => STR.contains_(source, l))
+      );
   }
 
   function canBeContainedBySegmentsOf(target: SignalPattern) {
     return (source: SignalPattern) =>
-      source.split("").every((l) => target.includes(l));
+      pipe(
+        STR.split_(source, ""),
+        forAll((l) => STR.contains_(target, l))
+      );
   }
 
   function findAndSplit<T>(set: HS.HashSet<T>, pred: Predicate<T>) {

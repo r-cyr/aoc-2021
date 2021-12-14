@@ -7,7 +7,7 @@ import * as AR from "@effect-ts/core/Collections/Immutable/Array";
 import * as HS from "@effect-ts/core/Collections/Immutable/HashSet";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
-import { flow, pipe } from "@effect-ts/core/Function";
+import { flow, increment, pipe } from "@effect-ts/core/Function";
 import {
   printResults,
   readFileAsStream,
@@ -52,10 +52,6 @@ const heightMap = pipe(
   S.someOrFail(() => new ParseError("Could not convert row to numbers")),
   S.runCollect
 ) as T.Effect<unknown, ReadFileError | ParseError, HeightMap>;
-
-function succ(n: number) {
-  return n + 1;
-}
 
 function lookup(heightMap: HeightMap, { tuple: [x, y] }: Location) {
   return pipe(heightMap, CK.get(y), O.chain(CK.get(x)));
@@ -148,7 +144,7 @@ function findBasinAtCoord(
         Tp.update_(
           go(heightMap, newLocation, alreadyMappedWithNewLocation),
           0,
-          succ
+          increment
         )
     );
   }
@@ -176,7 +172,7 @@ function findBasinAtCoord(
     );
   };
 
-  return Tp.update_(go(heightMap, location, alreadyMapped), 0, succ);
+  return Tp.update_(go(heightMap, location, alreadyMapped), 0, increment);
 }
 
 function findBasinsAtHeight(

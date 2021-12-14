@@ -4,7 +4,7 @@
   "main": "dist/index.js",
   "license": "MIT",
   "dependencies": {
-    "@effect-ts/core": "^0.48.4",
+    "@effect-ts/core": "^0.48.5",
     "@effect-ts/node": "^0.31.0",
     "@effect-ts/tracing-plugin": "^0.14.21",
     "@types/node": "^16.11.10",

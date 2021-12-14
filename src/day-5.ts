@@ -14,7 +14,6 @@ import {
   parseInteger,
   range,
   ParseError,
-  size,
 } from "./utils";
 
 const fileStream = readFileAsStream("./inputs/day-5.txt");
@@ -30,7 +29,7 @@ function parseLineSegment(str: string): O.Option<LineSegment> {
   return pipe(
     STR.matchAll_(str, /^(\d+),(\d+) -> (\d+),(\d+)$/g),
     O.map(AR.flatten),
-    O.filter((tokens) => size(tokens) === 5),
+    O.filter((tokens) => AR.size(tokens) === 5),
     O.chain((tokens) =>
       pipe(
         O.map_(

@@ -37,7 +37,7 @@ const boardStream = pipe(
   S.collect((line) =>
     isEmptyLine(line)
       ? O.none
-      : O.some(CK.from(STR.split_(STR.trim(line), /\s+/)))
+      : O.some(pipe(STR.trim(line), STR.split(/\s+/), CK.from))
   ),
   S.grouped(5),
   S.map(

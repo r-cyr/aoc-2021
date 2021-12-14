@@ -13,7 +13,6 @@ import {
   printResults,
   readFileAsStream,
 } from "./utils";
-import { string } from "@effect-ts/core/Equal";
 
 interface Up {
   readonly _tag: "Up";
@@ -61,7 +60,7 @@ function parseDirection(input: string): O.Option<Direction> {
     forward: "Forward",
   };
   const isValidDirection = (dir: string) =>
-    pipe(DT.keys(directionMap), AR.elem(string)(dir));
+    pipe(DT.keys(directionMap), AR.includes(dir));
 
   const [dir, num] = STR.split_(input, /\s+/);
 

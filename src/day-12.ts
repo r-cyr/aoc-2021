@@ -8,7 +8,7 @@ import * as HM from "@effect-ts/core/Collections/Immutable/HashMap";
 import * as HS from "@effect-ts/core/Collections/Immutable/HashSet";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
-import { printResults, readFileAsStream, toLowerCase } from "./utils";
+import { printResults, readFileAsStream } from "./utils";
 
 type Cave = BR.Branded<string, "Cave">;
 
@@ -19,7 +19,7 @@ const START = "start" as Cave;
 const END = "end" as Cave;
 
 function isSmallCave(cave: Cave) {
-  return toLowerCase(cave) === cave;
+  return STR.toLowerCase(cave) === cave;
 }
 
 const caveMap = pipe(

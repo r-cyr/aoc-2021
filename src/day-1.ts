@@ -1,5 +1,6 @@
 import * as T from "@effect-ts/core/Effect";
 import * as Tp from "@effect-ts/core/Collections/Immutable/Tuple";
+import * as CK from "@effect-ts/core/Collections/Immutable/Chunk";
 import * as O from "@effect-ts/core/Option";
 import * as S from "@effect-ts/core/Effect/Experimental/Stream";
 import { pipe } from "@effect-ts/core/Function";
@@ -36,8 +37,9 @@ function runMeasurements<R, E>(
 const part1 = pipe(numberStream, S.zipWithPrevious, runMeasurements);
 
 const part2 = pipe(
-  S.zip_(numberStream, S.drop_(numberStream, 1), S.drop_(numberStream, 2)),
-  S.map(({ tuple: [a, b, c] }) => a + b + c),
+  numberStream,
+  S.sliding(3),
+  S.map(CK.reduce(0, (a, b) => a + b)),
   S.zipWithPrevious,
   runMeasurements
 );
